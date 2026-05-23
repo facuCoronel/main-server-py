@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "skills": {
+    "clean-architecture": {
+      "source": "wondelai/skills",
+      "sourceType": "github",
+      "skillPath": "clean-architecture/SKILL.md",
+      "computedHash": "df8076799cc198bfab130f1069cea4755c85fadcdc3c03463ee1c24e4ebbf399"
+    },
+    "microsoft-agent-framework": {
+      "source": "github/awesome-copilot",
+      "sourceType": "github",
+      "skillPath": "skills/microsoft-agent-framework/SKILL.md",
+      "computedHash": "47f9e705f2a609ded19877db4d6c4691aa83a8415779b7fd4fb09e14cefd2c27"
+    }
+  }
+}

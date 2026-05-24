@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from config import get_settings
+from src.api.routes.business_chat import router as business_chat_router
 from src.infrastructure.persistence.postgres import connection as pg_conn
 
 logging.basicConfig(
@@ -48,6 +49,8 @@ def create_app() -> FastAPI:
     @app.get("/health")
     async def health() -> dict:
         return {"status": "ok"}
+
+    app.include_router(business_chat_router)
 
     return app
 

@@ -1,7 +1,14 @@
 from functools import lru_cache
+from pathlib import Path
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+
+def _default_skills_dir() -> str:
+    return str(_PROJECT_ROOT / "src" / "infrastructure" / "skills" / "definitions")
 
 
 class RagSettings(BaseModel):
@@ -10,6 +17,12 @@ class RagSettings(BaseModel):
     embedding_dimension: int = 768
     embedding_model: str = "nomic-embed-text"
     top_k: int = 5
+
+
+class BusinessChatSettings(BaseModel):
+    skills_dir: str = Field(default_factory=_default_skills_dir)
+    planner_temperature: float = 0.1
+    report_temperature: float = 0.4
 
 
 class PostgresConnectionParams(BaseModel):
@@ -69,6 +82,9 @@ class Settings(BaseSettings):
     # --- RAG (nested via Rag__* env vars) ---
     rag: RagSettings = RagSettings()
 
+    # --- Business chat (nested via BusinessChat__* env vars) ---
+    business_chat: BusinessChatSettings = BusinessChatSettings()
+
     # --- FastFixPro ---
     fastfixpro_api_base_url: str
     fastfixpro_api_token: str
@@ -91,4 +107,4 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()
+    return Settings()  # type: ignore[call-arg]

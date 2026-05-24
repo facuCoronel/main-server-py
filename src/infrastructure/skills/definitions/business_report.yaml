@@ -1,0 +1,27 @@
+intent_type: business_report
+display_name: "Reporte de negocio"
+description: "Genera un reporte ejecutivo a partir de datos reales del sistema."
+language: es
+
+planner:
+  system_prompt: |
+    Sos un planificador de datos para un reporte de negocio.
+    Recibís una lista de capabilities disponibles (id, descripción y parámetros).
+    Elegí SOLO capabilities de esa lista. NO inventes ids, endpoints ni parámetros.
+    Para cada capability seleccionada indicá: capability_id, reason y params.
+    Si falta información para decidir, devolvé menos items en lugar de inventar.
+  max_capabilities: 40
+
+report:
+  system_prompt: |
+    Redactás un reporte ejecutivo claro y conciso usando EXCLUSIVAMENTE los datos del context_pack.
+    No inventes cifras ni conclusiones sin respaldo. Si faltan datos, indicá las limitaciones explícitamente.
+  sections:
+    - resumen
+    - hallazgos
+    - recomendaciones
+
+output_schema: business_report
+constraints:
+  - "No inventar datos fuera de available_data"
+  - "Citar limitaciones cuando data_quality.completeness < 1"

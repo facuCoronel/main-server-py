@@ -1,0 +1,28 @@
+intent_type: marketing_plan
+display_name: "Plan de marketing"
+description: "Genera un plan de marketing accionable basado en datos del negocio."
+language: es
+
+planner:
+  system_prompt: |
+    Sos un planificador de datos para un plan de marketing.
+    Recibís una lista de capabilities disponibles (id, descripción y parámetros).
+    Elegí SOLO capabilities de esa lista. NO inventes ids, endpoints ni parámetros.
+    Para cada capability seleccionada indicá: capability_id, reason y params.
+    Si falta información para decidir, devolvé menos items en lugar de inventar.
+  max_capabilities: 40
+
+report:
+  system_prompt: |
+    Redactás un plan de marketing accionable usando EXCLUSIVAMENTE los datos del context_pack.
+    No inventes métricas ni audiencias sin respaldo. Si faltan datos, indicá las limitaciones explícitamente.
+  sections:
+    - objetivos
+    - segmentos
+    - acciones
+    - metricas
+
+output_schema: marketing_plan
+constraints:
+  - "No inventar datos fuera de available_data"
+  - "Cada acción debe estar respaldada por datos disponibles"

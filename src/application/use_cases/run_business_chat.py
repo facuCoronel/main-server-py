@@ -5,11 +5,13 @@ from src.application.interfaces.capability_gateway import CapabilityGatewayPort
 from src.application.interfaces.capability_planner import CapabilityPlannerPort
 from src.application.interfaces.report_generator import ReportGeneratorPort
 from src.application.interfaces.skill_repository import SkillRepositoryPort
+from src.application.interfaces.ui_generator import UiGeneratorPort
 from src.application.pipeline.discovery_step import run_discovery
 from src.application.pipeline.execution_step import run_execution
 from src.application.pipeline.packaging_step import build_context_pack
 from src.application.pipeline.planning_step import run_planning, validate_plan
 from src.application.pipeline.report_step import run_report
+from src.application.pipeline.ui_step import run_ui_generation, validate_ui_schema
 from src.application.pipeline.validation_step import validate_and_repair
 
 logger = logging.getLogger(__name__)
@@ -29,11 +31,13 @@ class RunBusinessChatUseCase:
         capability_gateway: CapabilityGatewayPort,
         planner: CapabilityPlannerPort,
         report_generator: ReportGeneratorPort,
+        ui_generator: UiGeneratorPort,
     ) -> None:
         self._skill_repository = skill_repository
         self._capability_gateway = capability_gateway
         self._planner = planner
         self._report_generator = report_generator
+        self._ui_generator = ui_generator
 
     async def execute(self, command: BusinessChatCommand) -> BusinessChatResult:
         rid = command.request_id
@@ -84,10 +88,28 @@ class RunBusinessChatUseCase:
                 f"{data_quality.failed} capabilities failed: {data_quality.failed_capabilities}"
             )
 
+        ui: dict | None = None
+        try:
+            raw_ui = await run_ui_generation(
+                self._ui_generator,
+                command.question,
+                command.intent_type,
+                skill,
+                context_pack,
+                final_report,
+            )
+            ui, ui_warnings = validate_ui_schema(raw_ui, skill)
+            warnings.extend(ui_warnings)
+        except Exception as exc:  # UI generation must never break the request
+            logger.warning("[%s] ui generation failed: %s", rid, exc)
+            warnings.append(f"ui generation failed: {exc}")
+            ui = None
+
         return BusinessChatResult(
             request_id=rid,
             intent_type=command.intent_type,
             report=final_report,
+            ui=ui,
             data_quality=data_quality,
             warnings=warnings,
         )

@@ -21,5 +21,6 @@ class BusinessChatResult(BaseModel):
     request_id: str
     intent_type: IntentType
     report: dict[str, Any] = Field(default_factory=dict)
+    ui: dict[str, Any] | None = None
     data_quality: DataQuality = Field(default_factory=DataQuality)
     warnings: list[str] = Field(default_factory=list)

@@ -9,12 +9,14 @@ from src.api.dependencies import (
     get_capability_planner,
     get_report_generator,
     get_skill_repository,
+    get_ui_generator,
 )
 from src.application.dtos.pipeline import CapabilityPlan
 from src.application.errors import PlanningError
 from src.application.interfaces.capability_gateway import CapabilityGatewayPort
 from src.application.interfaces.capability_planner import CapabilityPlannerPort
 from src.application.interfaces.report_generator import ReportGeneratorPort
+from src.application.interfaces.ui_generator import UiGeneratorPort
 from src.domain.value_objects.capability import CapabilityDescriptor
 from src.domain.value_objects.capability_plan import CapabilityPlanItem
 from src.infrastructure.skills.yaml_skill_repository import YamlSkillRepository
@@ -55,6 +57,20 @@ class StubReportGenerator(ReportGeneratorPort):
         }
 
 
+class StubUiGenerator(UiGeneratorPort):
+    """Returns a minimal valid UiSchema; avoids hitting the real LLM in tests."""
+
+    async def generate(
+        self, question, intent_type, skill, context_pack, validated_report
+    ) -> dict[str, Any]:
+        return {
+            "layout": "executive_dashboard",
+            "components": [
+                {"id": "c1", "type": "metric_card", "title": "Total", "value": 1}
+            ],
+        }
+
+
 def _set_gateway(fail_ids: set[str] | None = None) -> None:
     app.dependency_overrides[get_capability_gateway] = lambda: FakeGateway(fail_ids)
 
@@ -65,6 +81,10 @@ def _set_planner(plan: CapabilityPlan) -> None:
 
 def _set_report_generator(generator: ReportGeneratorPort) -> None:
     app.dependency_overrides[get_report_generator] = lambda: generator
+
+
+def _set_ui_generator(generator: UiGeneratorPort) -> None:
+    app.dependency_overrides[get_ui_generator] = lambda: generator
 
 
 def _plan_get_sales(**params: Any) -> CapabilityPlan:
@@ -78,6 +98,7 @@ def _override_dependencies():
     _set_gateway()
     _set_planner(CapabilityPlan(items=[]))
     _set_report_generator(StubReportGenerator())
+    _set_ui_generator(StubUiGenerator())
     yield
     app.dependency_overrides.clear()
 
@@ -95,6 +116,8 @@ def test_valid_intent_runs_full_pipeline():
     assert set(body["report"].keys()) == {"resumen", "hallazgos", "recomendaciones", "limitations"}
     assert body["data_quality"]["succeeded"] == 1
     assert body["warnings"] == []
+    assert body["ui"]["layout"] == "executive_dashboard"
+    assert body["ui"]["components"][0]["type"] == "metric_card"
 
 
 def test_partial_execution_failure_excluded_from_report():
@@ -197,6 +220,66 @@ def test_marketing_plan_intent_end_to_end():
         "metricas",
         "limitations",
     }
+
+
+def test_marketing_plan_has_null_ui():
+    class MarketingReportGenerator(ReportGeneratorPort):
+        async def generate(self, context_pack, skill, feedback=None) -> dict[str, Any]:
+            return {
+                "objetivos": "o",
+                "segmentos": "s",
+                "acciones": "a",
+                "metricas": "m",
+                "limitations": "",
+            }
+
+    _set_planner(_plan_get_sales())
+    _set_report_generator(MarketingReportGenerator())
+    resp = client.post(
+        "/business-chat",
+        json={"intent_type": "marketing_plan", "question": "plan"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["ui"] is None
+
+
+def test_ui_generation_failure_does_not_break_report():
+    class RaisingUiGenerator(UiGeneratorPort):
+        async def generate(
+            self, question, intent_type, skill, context_pack, validated_report
+        ) -> dict[str, Any]:
+            raise RuntimeError("ui exploded")
+
+    _set_planner(_plan_get_sales())
+    _set_ui_generator(RaisingUiGenerator())
+    resp = client.post(
+        "/business-chat",
+        json={"intent_type": "business_report", "question": "ventas"},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["ui"] is None
+    assert body["report"]["resumen"] == "sources=['get_sales']"
+    assert any("ui generation failed" in w for w in body["warnings"])
+
+
+def test_invalid_ui_schema_yields_null_ui_with_warning():
+    class BadUiGenerator(UiGeneratorPort):
+        async def generate(
+            self, question, intent_type, skill, context_pack, validated_report
+        ) -> dict[str, Any]:
+            return {"components": [{"id": "x", "type": "not_a_real_component"}]}
+
+    _set_planner(_plan_get_sales())
+    _set_ui_generator(BadUiGenerator())
+    resp = client.post(
+        "/business-chat",
+        json={"intent_type": "business_report", "question": "ventas"},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["ui"] is None
+    assert any("ui generation" in w for w in body["warnings"])
 
 
 def test_planning_error_returns_502():

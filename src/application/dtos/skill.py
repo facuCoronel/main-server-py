@@ -13,6 +13,16 @@ class ReportConfig(BaseModel):
     sections: list[str] = Field(default_factory=list)
 
 
+class UiConfig(BaseModel):
+    """Optional declarative-UI generation config for a skill."""
+
+    enabled: bool = False
+    output_schema: str | None = None
+    system_prompt: str = ""
+    allowed_components: list[str] = Field(default_factory=list)
+    max_components: int = Field(default=8, ge=1)
+
+
 class SkillDefinition(BaseModel):
     """Validated representation of a local skill (parsed from YAML).
 
@@ -27,3 +37,4 @@ class SkillDefinition(BaseModel):
     report: ReportConfig
     output_schema: str
     constraints: list[str] = Field(default_factory=list)
+    ui: UiConfig | None = None

@@ -1,4 +1,5 @@
 import json
+from typing import Any
 
 from src.application.dtos.pipeline import ContextPack
 from src.application.dtos.skill import SkillDefinition
@@ -67,3 +68,36 @@ def build_report_instructions(skill: SkillDefinition) -> str:
 
 def build_report_user_message(context_pack: ContextPack) -> str:
     return json.dumps(context_pack.model_dump(), ensure_ascii=False, indent=2)
+
+
+def build_ui_instructions(skill: SkillDefinition) -> str:
+    ui = skill.ui
+    allowed = ", ".join(ui.allowed_components) if ui and ui.allowed_components else "(none)"
+    max_components = ui.max_components if ui else 8
+    system_prompt = ui.system_prompt if ui else ""
+    return (
+        f"{system_prompt}\n\n"
+        f"Write any text in language: {skill.language}.\n"
+        "Use ONLY data present in the context_pack and the validated report provided by the user. "
+        "Never invent figures, facts, or sources.\n"
+        f"You may use ONLY these component types: {allowed}.\n"
+        f"Use at most {max_components} components.\n"
+        "Do NOT return HTML, CSS, Angular, or EChartsOption. Return ONLY a valid JSON object "
+        "of this exact shape:\n"
+        '{"layout": "executive_dashboard", "components": [{"id": "<unique id>", '
+        '"type": "<one allowed type>", "title": "<title>", ...component fields...}]}\n'
+        "Each component must have a unique id and a type from the allowed list."
+    )
+
+
+def build_ui_user_message(
+    question: str,
+    context_pack: ContextPack,
+    validated_report: dict[str, Any],
+) -> str:
+    payload = {
+        "question": question,
+        "context_pack": context_pack.model_dump(),
+        "validated_report": validated_report,
+    }
+    return json.dumps(payload, ensure_ascii=False, indent=2)
